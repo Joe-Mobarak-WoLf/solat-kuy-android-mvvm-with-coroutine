@@ -1,19 +1,15 @@
 package com.programmergabut.solatkuy.ui.boarding
 
+import android.Manifest
 import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
 import android.view.View
-import android.widget.Toast
-import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -25,38 +21,31 @@ import com.programmergabut.solatkuy.data.local.localentity.MsApi1
 import com.programmergabut.solatkuy.databinding.ActivityBoardingBinding
 import com.programmergabut.solatkuy.databinding.LayoutBottomsheetBygpsBinding
 import com.programmergabut.solatkuy.databinding.LayoutBottomsheetBylatitudelongitudeBinding
+import com.programmergabut.solatkuy.permission.PermissionCallback
+import com.programmergabut.solatkuy.permission.PermissionUtil
 import com.programmergabut.solatkuy.ui.main.MainActivity
 import com.programmergabut.solatkuy.util.Constant
 import com.programmergabut.solatkuy.util.EnumStatus
-import dagger.hilt.android.AndroidEntryPoint
 import es.dmoral.toasty.Toasty
 import org.joda.time.LocalDate
 
-@AndroidEntryPoint
 class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel>(
     R.layout.activity_boarding,
-    BoardingViewModel::class.java
+    BoardingViewModel::class
 ), View.OnClickListener {
 
     private lateinit var bsByGpsBinding: LayoutBottomsheetBygpsBinding
     private lateinit var bsByLatLngBinding: LayoutBottomsheetBylatitudelongitudeBinding
     private lateinit var bottomSheetDialog: Dialog
-    private var isHasOpenSettingButton = false
 
-    override fun getViewBinding(): ActivityBoardingBinding = ActivityBoardingBinding.inflate(layoutInflater)
+    override fun getViewBinding(): ActivityBoardingBinding =
+        ActivityBoardingBinding.inflate(layoutInflater)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         bottomSheetDialog = BottomSheetDialog(this)
     }
 
-    override fun onStart() {
-        super.onStart()
-        if(isHasOpenSettingButton){
-            getGPSLocation()
-            isHasOpenSettingButton = false
-        }
-    }
 
     override fun setListener() {
         super.setListener()
@@ -67,7 +56,7 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
         bsByLatLngBinding.btnProceedByLL.setOnClickListener(this)
 
         viewModel.msSetting.observe(this, {
-            if(it != null && it.isHasOpenApp){
+            if (it != null && it.isHasOpenApp) {
                 gotoIntent(MainActivity::class.java, null, true)
                 overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             }
@@ -80,7 +69,7 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
     }
 
     override fun onClick(v: View?) {
-        when(v?.id){
+        when (v?.id) {
             R.id.btn_by_latitude_longitude -> {
                 bottomSheetDialog.setContentView(bsByLatLngBinding.root)
                 bottomSheetDialog.show()
@@ -93,12 +82,12 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
             R.id.btn_by_gps -> {
                 bottomSheetDialog.setContentView(bsByGpsBinding.root)
                 bottomSheetDialog.show()
-                getGPSLocation()
+                showPermissionDialog()
             }
             R.id.btn_proceedByGps -> {
-                if(bsByGpsBinding.tvGpsDialogLatitude.visibility != View.VISIBLE &&
-                    bsByGpsBinding.tvViewLongitude.visibility != View.VISIBLE){
-                    isHasOpenSettingButton = true
+                if (bsByGpsBinding.tvGpsDialogLatitude.visibility != View.VISIBLE &&
+                    bsByGpsBinding.tvViewLongitude.visibility != View.VISIBLE
+                ) {
                     startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                 } else {
                     val latitude = bsByGpsBinding.tvGpsDialogLatitude.text.toString().trim()
@@ -116,8 +105,10 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
 
     private fun insertLocationSettingToDb(latitude: String, longitude: String) {
         val latitudeAndLongitudeCannotBeEmpty = "latitude and longitude cannot be empty"
-        val latitudeAndLongitudeCannotBeEndedWithDot = "latitude and longitude cannot be ended with ."
-        val latitudeAndLongitudeCannotBeStartedWithDot = "latitude and longitude cannot be started with ."
+        val latitudeAndLongitudeCannotBeEndedWithDot =
+            "latitude and longitude cannot be ended with ."
+        val latitudeAndLongitudeCannotBeStartedWithDot =
+            "latitude and longitude cannot be started with ."
         val successChangeTheCoordinate = "Success change the coordinate"
 
         val msApi1 = MsApi1(
@@ -129,7 +120,7 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
             LocalDate().year.toString()
         )
 
-        if(msApi1.latitude.isEmpty() || msApi1.longitude.isEmpty() || msApi1.latitude == "." || msApi1.longitude == "."){
+        if (msApi1.latitude.isEmpty() || msApi1.longitude.isEmpty() || msApi1.latitude == "." || msApi1.longitude == ".") {
             Toasty.error(this, latitudeAndLongitudeCannotBeEmpty, Toasty.LENGTH_SHORT).show()
             return
         }
@@ -137,13 +128,14 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
         val arrLatitude = msApi1.latitude.toCharArray()
         val arrLongitude = msApi1.longitude.toCharArray()
 
-        if(arrLatitude[arrLatitude.size - 1] == '.' || arrLongitude[arrLongitude.size - 1] == '.'){
+        if (arrLatitude[arrLatitude.size - 1] == '.' || arrLongitude[arrLongitude.size - 1] == '.') {
             Toasty.error(this, latitudeAndLongitudeCannotBeEndedWithDot, Toasty.LENGTH_SHORT).show()
             return
         }
 
-        if(arrLatitude[0] == '.' || arrLongitude[0] == '.'){
-            Toasty.error(this, latitudeAndLongitudeCannotBeStartedWithDot, Toasty.LENGTH_SHORT).show()
+        if (arrLatitude[0] == '.' || arrLongitude[0] == '.') {
+            Toasty.error(this, latitudeAndLongitudeCannotBeStartedWithDot, Toasty.LENGTH_SHORT)
+                .show()
             return
         }
 
@@ -153,42 +145,23 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
         updateIsHasOpenApp()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if(requestCode == LOCATION_PERMISSIONS){
-            if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                onUpdateLocationListener()
-            }
-            else{
-                bottomSheetDialog.dismiss()
-                Toasty.error(this, getString(R.string.permission_is_needed_to_run_the_gps), Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+    private fun showPermissionDialog() {
+        PermissionUtil.checkGroup(
+            this,
+            object : PermissionCallback {
+                override fun onPermissionGranted() {
+                    setGpsBottomSheetState()
+                    onUpdateLocationListener()
+                }
 
-    private fun showPermissionDialog(){
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.location_needed))
-            .setMessage(getString(R.string.permission_is_needed_to_run_the_gps))
-            .setCancelable(false)
-            .setPositiveButton(getString(R.string.oke)) { _: DialogInterface, _: Int ->
-                ActivityCompat.requestPermissions(this, listLocationPermission(), LOCATION_PERMISSIONS)
-            }
-            .setNegativeButton(getString(R.string.cancel)) { _: DialogInterface, _: Int ->
-                bottomSheetDialog.dismiss()
-            }
-            .create()
-            .show()
-    }
-
-    private fun getGPSLocation(){
-        if (isLocationPermissionGranted()) {
-            setGpsBottomSheetState()
-            onUpdateLocationListener()
-        } else {
-            showPermissionDialog()
-            return
-        }
+                override fun onPermissionDenied() {
+                }
+            },
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
     }
 
     private fun setGpsBottomSheetState() {
@@ -197,10 +170,12 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
         var networkEnabled = false
         try {
             gpsEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
-        } catch (ex: java.lang.Exception) { }
+        } catch (ex: java.lang.Exception) {
+        }
         try {
             networkEnabled = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-        } catch (ex: java.lang.Exception) { }
+        } catch (ex: java.lang.Exception) {
+        }
         if (!gpsEnabled && !networkEnabled)
             setGpsComponentState(EnumStatus.ERROR)
         else
@@ -208,28 +183,30 @@ class BoardingActivity : BaseActivity<ActivityBoardingBinding, BoardingViewModel
     }
 
     @SuppressLint("MissingPermission")
-    private fun onUpdateLocationListener(){
-        val mLocationRequest = LocationRequest()
-        mLocationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        mLocationRequest.interval = 10 * 1000 /* 10 minute */
-        mLocationRequest.fastestInterval = 1 * 1000 /* 1 second */
+    private fun onUpdateLocationListener() {
+        val locationRequest = LocationRequest.create().apply {
+            interval = 100
+            fastestInterval = 50
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            maxWaitTime = 100
+        }
         if (!isLocationPermissionGranted()) {
             showPermissionDialog()
             return
         }
         LocationServices.getFusedLocationProviderClient(this)
-            .requestLocationUpdates(mLocationRequest, object : LocationCallback() {
+            .requestLocationUpdates(locationRequest, object : LocationCallback() {
                 override fun onLocationResult(locationResult: LocationResult) {
                     val location = locationResult.lastLocation ?: return
                     setGpsComponentState(EnumStatus.SUCCESS)
                     bsByGpsBinding.tvGpsDialogLatitude.text = location.latitude.toString()
-                    bsByGpsBinding.tvGpsDialogLongitude.text= location.longitude.toString()
+                    bsByGpsBinding.tvGpsDialogLongitude.text = location.longitude.toString()
                 }
             }, Looper.myLooper())
     }
 
-    private fun setGpsComponentState(status: EnumStatus){
-        when(status){
+    private fun setGpsComponentState(status: EnumStatus) {
+        when (status) {
             EnumStatus.SUCCESS -> {
                 bsByGpsBinding.tvViewLatitude.visibility = View.VISIBLE
                 bsByGpsBinding.tvViewLongitude.visibility = View.VISIBLE
