@@ -30,6 +30,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.dua.DuaActivity" />
+
+        <activity android:name=".permission.PermissionActivity" />
+
         <activity
             android:name=".ui.boarding.BoardingActivity"
             android:screenOrientation="portrait"
